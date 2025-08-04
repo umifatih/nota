@@ -67,7 +67,7 @@
 
     function addItem() {
       const div = document.createElement("div");
-      div.className = "flex gap-2 mb-2";
+      div.className = "grid grid-cols-1 sm:grid-cols-4 gap-2 mb-2";
       div.innerHTML = `
         <input type="text" placeholder="Barang" class="flex-1 border px-2 py-1 rounded" required />
         <input type="text" placeholder="Qty" class="w-16 border px-2 py-1 rounded" required />
@@ -153,7 +153,9 @@
     function downloadNota() {
       html2canvas(document.getElementById("nota-print")).then(canvas => {
         const link = document.createElement("a");
-        link.download = 'nota.png';
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12); // contoh: 20250804 2215
+        link.download = `nota-${timestamp}.png`;
         link.href = canvas.toDataURL();
         link.click();
       });
