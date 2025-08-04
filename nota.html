@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nota Online</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    #nota-print {
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre;
+      background: white;
+      padding: 12px;
+      width: 270px;
+      border: 1px dashed #aaa;
+      text-align: left;
+    }
+    #nota-print .center {
+      text-align: center;
+      font-weight: bold;
+    }
+    #nota-print .footer {
+      text-align: center;
+      font-weight: bold;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-4">
+  <div class="max-w-xl mx-auto">
+    <h1 class="text-xl font-bold mb-4 text-center">Nota Generator</h1>
+
+    <div class="bg-white p-4 rounded shadow mb-4 text-sm">
+      <label class="block font-medium mb-1">Nama Pemesan</label>
+      <input type="text" id="nama-pemesan" required class="w-full border px-2 py-1 rounded mb-2" placeholder="Masukkan nama">
+
+      <label class="block font-medium mb-1">Tanggal Pemesanan</label>
+      <input type="datetime-local" id="tanggal-pesan" required class="w-full border px-2 py-1 rounded mb-2" onchange="hitungEstimasi()">
+
+      <label class="block font-medium mb-1">Durasi Pengerjaan (hari)</label>
+      <input type="number" id="durasi-hari" required class="w-full border px-2 py-1 rounded mb-2" value="3" min="1" onchange="hitungEstimasi()">
+
+      <label class="block font-medium mb-1">Estimasi Selesai</label>
+      <input type="text" id="estimasi-output" class="w-full border px-2 py-1 rounded mb-2 bg-gray-100" readonly>
+
+      <label class="block font-medium mb-1">Daftar Barang</label>
+      <div id="item-list"></div>
+      <button onclick="addItem()" class="mt-2 bg-blue-500 text-white px-2 py-1 rounded text-sm">+ Tambah Item</button>
+
+      <div class="mt-4">
+        <button onclick="generateNota()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Buat Nota</button>
+      </div>
+    </div>
+
+    <div id="nota-area" class="bg-white p-4 rounded shadow text-sm hidden">
+      <div id="nota-print"></div>
+      <div class="mt-2 text-center">
+        <button onclick="downloadNota()" class="text-blue-600 underline">Download Gambar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const itemList = document.getElementById("item-list");
+
+    function addItem() {
+      const div = document.createElement("div");
+      div.className = "flex gap-2 mb-2";
+      div.innerHTML = `
+        <input type="text" placeholder="Barang" class="flex-1 border px-2 py-1 rounded" required />
+        <input type="text" placeholder="Qty" class="w-16 border px-2 py-1 rounded" required />
+        <input type="number" placeholder="Harga" class="w-24 border px-2 py-1 rounded" required />
+        <button onclick="this.parentElement.remove()" class="text-red-500">✕</button>
+      `;
+      itemList.appendChild(div);
+    }
+
+    function formatDate(date) {
+      const day = ("0" + date.getDate()).slice(-2);
+      const month = ("0" + (date.getMonth() + 1)).slice(-2);
+      const year = date.getFullYear().toString().slice(-2);
+      const time = ("0" + date.getHours()).slice(-2) + ":" + ("0" + date.getMinutes()).slice(-2);
+      return `${day}-${month}-${year} ${time}`;
+    }
+
+    function getEstDate() {
+      const inputTanggal = document.getElementById("tanggal-pesan").value;
+      const durasi = parseInt(document.getElementById("durasi-hari").value || '0');
+      const tgl = inputTanggal ? new Date(inputTanggal) : new Date();
+      const est = new Date(tgl);
+      est.setDate(est.getDate() + durasi);
+      return { pemesanan: formatDate(tgl), selesai: formatDate(est) };
+    }
+
+    function hitungEstimasi() {
+      const waktu = getEstDate();
+      document.getElementById("estimasi-output").value = waktu.selesai;
+    }
+
+    function generateNota() {
+      const nama = document.getElementById("nama-pemesan").value.trim();
+      if (!nama) return alert("Nama pemesan wajib diisi.");
+
+      const waktu = getEstDate();
+      document.getElementById("estimasi-output").value = waktu.selesai;
+
+      let nota = "";
+      nota += `<div class='center'>FAIZAH LAUNDRY</div>`;
+      nota += `<div class='center'>Jalan Tangsi 2 RT02 RW04</div>`;
+      nota += `<div class='center'>Telp/WA : 0858 5641 4167</div>`;
+      nota += "-----------------------------------\n";
+      nota += `Pelanggan   : ${nama}\n`;
+      nota += `Tgl Pesan   : ${waktu.pemesanan}\n`;
+      nota += `Est Selesai : ${waktu.selesai}\n`;
+      nota += "-----------------------------------\n";
+
+      let total = 0;
+      let totalItem = 0;
+      let valid = false;
+
+      itemList.querySelectorAll("div").forEach(row => {
+        const nama = row.children[0].value.trim();
+        const qty = row.children[1].value.trim();
+        const harga = parseFloat(row.children[2].value);
+        if (!nama || !qty || isNaN(harga)) return;
+        const subtotal = parseFloat(qty) * harga || 0;
+        nota += `${nama} (${qty} x ${harga.toLocaleString("id-ID")})\n`;
+        nota += `${"".padStart(29 - subtotal.toLocaleString("id-ID").length)}${subtotal.toLocaleString("id-ID")}\n`;
+        total += subtotal;
+        totalItem += parseFloat(qty) || 0;
+        valid = true;
+      });
+
+      if (!valid) return alert("Isi minimal satu barang dengan qty dan harga.");
+
+      nota += "-----------------------------------\n";
+      nota += `Total Harga : ${total.toLocaleString("id-ID")}\n`;
+      nota += `Total Item  : ${totalItem}\n`;
+      nota += "-----------------------------------\n";
+      nota += `REK BRI     : 0106 0109 9153 509 <br>(Siti Faizah)\n`;
+      nota += `Dana        : 0858 5641 4167\n`;
+      nota += "-----------------------------------\n";
+      nota += `<div class='footer'>BUKA : SENIN - MINGGU<br>JAM  : 08.00 - 20.00</div>`;
+      nota += `<div class='footer'>*Tidak menerima komplain<br>setelah 24 jam.</div>`;
+      nota += `<div class='footer'>Terimakasih</div>`;
+
+      document.getElementById("nota-print").innerHTML = nota;
+      document.getElementById("nota-area").classList.remove("hidden");
+    }
+
+    function downloadNota() {
+      html2canvas(document.getElementById("nota-print")).then(canvas => {
+        const link = document.createElement("a");
+        link.download = 'nota.png';
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    }
+
+    window.onload = () => {
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+      document.getElementById("tanggal-pesan").value = local;
+      hitungEstimasi();
+      addItem();
+    };
+  </script>
+</body>
+</html>
